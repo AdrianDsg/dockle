@@ -14,11 +14,10 @@
     - Checkpoints includes [CIS Benchmarks](https://www.cisecurity.org/cis-benchmarks/)
 
 ```bash
-brew untap goodwithtech/dockle # who use 0.1.16 or older version
-brew install goodwithtech/r/dockle
-dockle [YOUR_IMAGE_NAME]
+$ brew untap goodwithtech/dockle # who use 0.1.16 or older version
+$ brew install goodwithtech/r/dockle
+$ dockle [YOUR_IMAGE_NAME]
 ```
-
 See [Installation](#installation) and [Common Examples](#common-examples)
 
 <img src="imgs/dockle.png" width="800">
@@ -41,6 +40,7 @@ See [Installation](#installation) and [Common Examples](#common-examples)
   - [Microsoft PowerShell 7](#microsoft-powershell-7)
   - [Binary](#binary)
   - [asdf](#asdf)
+  - [mise](#mise)
   - [From source](#from-source)
   - [Use Docker](#use-docker)
 - [Quick Start](#quick-start)
@@ -51,19 +51,29 @@ See [Installation](#installation) and [Common Examples](#common-examples)
   - [Scan an image](#scan-an-image)
   - [Scan an image file](#scan-an-image-file)
   - [Get or Save the results as JSON](#get-or-save-the-results-as-json)
+  - [Get or Save the results as SARIF](#get-or-save-the-results-as-sarif)
   - [Specify exit code](#specify-exit-code)
   - [Specify exit level](#specify-exit-level)
   - [Ignore the specified checkpoints](#ignore-the-specified-checkpoints)
+  - [Accept suspicious `environment variables` / `files` / `file extensions`](#accept-suspicious-environment-variables--files--file-extensions)
+  - [Reject suspicious `environment variables` / `files` / `file extensions`](#reject-suspicious-environment-variables--files--file-extensions)
 - [Continuous Integration](#continuous-integration-ci)
   - [GitHub Action](#github-action)
   - [Travis CI](#travis-ci)
   - [CircleCI](#circleci)
   - [GitLab CI](#gitlab-ci)
   - [Authorization for Private Docker Registry](#authorization-for-private-docker-registry)
-- [Checkpoint Details](CHECKPOINT.md)
-  - CIS's Docker Image Checkpoints
-  - Dockle Checkpoints for Docker
-  - Dockle Checkpoints for Linux
+    - [Docker Hub](#docker-hub)
+    - [Amazon ECR (Elastic Container Registry)](#amazon-ecr-elastic-container-registry)
+    - [GCR (Google Container Registry)](#gcr-google-container-registry)
+    - [Self Hosted Registry (BasicAuth)](#self-hosted-registry-basicauth)
+- [Contributors](#contributors)
+  - [Code Contributors](#code-contributors)
+  - [Financial Contributors](#financial-contributors)
+    - [Individuals](#individuals)
+    - [Organizations](#organizations)
+- [License](#license)
+- [Author](#author)
 
 # Features
 
@@ -85,7 +95,7 @@ See [Installation](#installation) and [Common Examples](#common-examples)
 | Target |  Image | Dockerfile | Host<br/>Docker Daemon<br/>Image<br/>Container Runtime | Image |
 | How to run | Binary | Binary | ShellScript | Binary |
 | Dependency | No | No | Some dependencies | No |
-| CI Suitable | ✓ | ✓ | x | x |
+| CI Suitable | ✓ | ✓ | x | x | 
 | Purpose |Security Audit<br/>Dockerfile Lint| Dockerfile Lint | Security Audit<br/>Dockerfile Lint | Scan Vulnerabilities |
 
 # Installation
@@ -95,7 +105,7 @@ See [Installation](#installation) and [Common Examples](#common-examples)
 You can use Homebrew on [Mac OS X](https://brew.sh/) or [Linux and WSL (Windows Subsystem for Linux)](https://docs.brew.sh/Homebrew-on-Linux).
 
 ```bash
-brew install goodwithtech/r/dockle
+$ brew install goodwithtech/r/dockle
 ```
 
 ## RHEL/CentOS
@@ -118,20 +128,14 @@ VERSION=$(
 ) && curl -L -o dockle.deb https://github.com/goodwithtech/dockle/releases/download/v${VERSION}/dockle_${VERSION}_Linux-64bit.deb
 $ sudo dpkg -i dockle.deb && rm dockle.deb
 ```
-
 ## Arch Linux
-
 dockle can be installed from the Arch User Repository using `dockle` or `dockle-bin` package.
-
-```bash
+```
 git clone https://aur.archlinux.org/dockle-bin.git
 cd dockle-bin
 makepkg -sri
 ```
-
 ## Windows
-
-### Bash
 
 ```bash
 VERSION=$(
@@ -139,20 +143,16 @@ VERSION=$(
  grep '"tag_name":' | \
  sed -E 's/.*"v([^"]+)".*/\1/' \
 ) && curl -L -o dockle.zip https://github.com/goodwithtech/dockle/releases/download/v${VERSION}/dockle_${VERSION}_Windows-64bit.zip
-unzip dockle.zip && rm dockle.zip
-./dockle.exe [IMAGE_NAME]
+$ unzip dockle.zip && rm dockle.zip
+$ ./dockle.exe [IMAGE_NAME]
 ```
-
-### Microsoft PowerShell 7
-
-```powershell
+## Microsoft PowerShell 7
+```bash
 if (((Invoke-WebRequest "https://api.github.com/repos/goodwithtech/dockle/releases/latest").Content) -match '"tag_name":"v(?<ver>[^"]+)"') {
-  $VERSION=$Matches.ver
-  Invoke-WebRequest "https://github.com/goodwithtech/dockle/releases/download/v${VERSION}/dockle_${VERSION}_Windows-64bit.zip" -OutFile dockle.zip
-  Expand-Archive dockle.zip && Remove-Item dockle.zip
-}
+$VERSION=$Matches.ver &&
+Invoke-WebRequest "https://github.com/goodwithtech/dockle/releases/download/v${VERSION}/dockle_${VERSION}_Windows-64bit.zip" -OutFile dockle.zip &&
+Expand-Archive dockle.zip && Remove-Item dockle.zip }
 ```
-
 ## Binary
 
 You can get the latest version binary from [releases page](https://github.com/goodwithtech/dockle/releases/latest).
@@ -182,19 +182,37 @@ asdf global dockle latest
 dockle --version
 ```
 
+## mise
+
+You can install dockle with [mise](https://github.com/jdx/mise), the polyglot tool versions manager. With mise already installed, run these commands to install dockle:
+
+```bash
+# Show all installable versions
+mise ls-remote dockle
+
+# Install specific version
+mise install dockle@latest
+
+# Set a version globally
+mise use -g dockle@latest
+
+# Now dockle commands are available
+dockle --version
+```
+
 ## From source
 
 ```bash
-GO111MODULE=off go get github.com/goodwithtech/dockle/cmd/dockle
-cd $GOPATH/src/github.com/goodwithtech/dockle && GO111MODULE=on go build -o $GOPATH/bin/dockle cmd/dockle/main.go
+$ GO111MODULE=off go get github.com/goodwithtech/dockle/cmd/dockle
+$ cd $GOPATH/src/github.com/goodwithtech/dockle && GO111MODULE=on go build -o $GOPATH/bin/dockle cmd/dockle/main.go
 ```
 
 ## Use Docker
 
 There's a [`Dockle` image on Docker Hub](https://hub.docker.com/r/goodwithtech/dockle) also. You can try `dockle` before installing the command.
 
-```bash
-VERSION=$(
+```
+$ VERSION=$(
  curl --silent "https://api.github.com/repos/goodwithtech/dockle/releases/latest" | \
  grep '"tag_name":' | \
  sed -E 's/.*"v([^"]+)".*/\1/' \
@@ -211,13 +229,13 @@ You only need `-v /var/run/docker.sock:/var/run/docker.sock` when you'd like to 
 Simply specify an image name (and a tag).
 
 ```bash
-dockle [YOUR_IMAGE_NAME]
+$ dockle [YOUR_IMAGE_NAME]
 ```
 
 <details>
 <summary>Result</summary>
 
-```text
+```
 FATAL   - CIS-DI-0009: Use COPY instead of ADD in Dockerfile
         * Use COPY : /bin/sh -c #(nop) ADD file:81c0a803075715d1a6b4f75a29f8a01b21cc170cfc1bff6702317d1be2fe71a3 in /app/credentials.json
 FATAL   - CIS-DI-0010: Do not store credential in ENVIRONMENT vars/files
@@ -250,6 +268,7 @@ INFO    - CIS-DI-0008: Confirm safety of setuid/setgid files
         * setgid file: usr/bin/expiry grwxr-xr-x
         * setuid file: usr/bin/newgrp urwxr-xr-x
 IGNORE  - CIS-DI-0006: Add HEALTHCHECK instruction to the container image
+
 ```
 
 </details>
@@ -259,18 +278,18 @@ IGNORE  - CIS-DI-0006: Add HEALTHCHECK instruction to the container image
 Also, you can use Docker to use `dockle` command as follow.
 
 ```bash
-export DOCKLE_LATEST=$(
+$ export DOCKLE_LATEST=$(
  curl --silent "https://api.github.com/repos/goodwithtech/dockle/releases/latest" | \
  grep '"tag_name":' | \
  sed -E 's/.*"v([^"]+)".*/\1/' \
 )
-docker run --rm goodwithtech/dockle:v${DOCKLE_LATEST} [YOUR_IMAGE_NAME]
+$ docker run --rm goodwithtech/dockle:v${DOCKLE_LATEST} [YOUR_IMAGE_NAME]
 ```
 
 - If you'd like to scan the image on your host machine, you need to mount `docker.sock`.
 
     ```bash
-    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock ...
+    $ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock ...
     ```
 
 # Checkpoint Summary
@@ -285,7 +304,7 @@ docker run --rm goodwithtech/dockle:v${DOCKLE_LATEST} [YOUR_IMAGE_NAME]
 | [CIS-DI-0003](CHECKPOINT.md#cis-di-0003) | Do not install unnecessary packages in the container | FATAL
 | [CIS-DI-0004](CHECKPOINT.md#cis-di-0004) | Scan and rebuild the images to include security patches | FATAL
 | [CIS-DI-0005](CHECKPOINT.md#cis-di-0005) | Enable Content trust for Docker | INFO
-| [CIS-DI-0006](CHECKPOINT.md#cis-di-0006) | Add `HEALTHCHECK` instruction to the container image | WARN
+| [CIS-DI-0006](CHECKPOINT.md#cis-di-0006) | Add `HEALTHCHECK` instruction to the container image | INFO
 | [CIS-DI-0007](CHECKPOINT.md#cis-di-0007) | Do not use `update` instructions alone in the Dockerfile | FATAL
 | [CIS-DI-0008](CHECKPOINT.md#cis-di-0008) | Confirm safety of `setuid` and `setgid` files | INFO
 | [CIS-DI-0009](CHECKPOINT.md#cis-di-0009) | Use `COPY` instead of `ADD` in Dockerfile | FATAL
@@ -322,13 +341,13 @@ docker run --rm goodwithtech/dockle:v${DOCKLE_LATEST} [YOUR_IMAGE_NAME]
 Simply specify an image name (and a tag).
 
 ```bash
-dockle goodwithtech/test-image:v1
+$ dockle goodwithtech/test-image:v1
 ```
 
 <details>
 <summary>Result</summary>
 
-```text
+```
 FATAL   - CIS-DI-0001: Create a user for the container
         * Last user should not be root
 WARN    - CIS-DI-0005: Enable Content trust for Docker
@@ -362,21 +381,20 @@ FATAL   - DKL-LI-0001: Avoid empty password
 PASS    - DKL-LI-0002: Be unique UID
 PASS    - DKL-LI-0002: Be unique GROUP
 ```
-
 </details>
 
 ### Scan an image file
 
 ```bash
-docker save alpine:latest -o alpine.tar
-dockle --input alpine.tar
+$ docker save alpine:latest -o alpine.tar
+$ dockle --input alpine.tar
 ```
 
 ### Get or Save the results as JSON
 
 ```bash
-dockle -f json goodwithtech/test-image:v1
-dockle -f json -o results.json goodwithtech/test-image:v1
+$ dockle -f json goodwithtech/test-image:v1
+$ dockle -f json -o results.json goodwithtech/test-image:v1
 ```
 
 <details>
@@ -480,8 +498,8 @@ dockle -f json -o results.json goodwithtech/test-image:v1
 ### Get or Save the results as SARIF
 
 ```bash
-dockle -f sarif goodwithtech/test-image:v1
-dockle -f sarif -o results.json goodwithtech/test-image:v1
+$ dockle -f sarif goodwithtech/test-image:v1
+$ dockle -f sarif -o results.json goodwithtech/test-image:v1
 ```
 
 <details>
@@ -635,7 +653,6 @@ dockle -f sarif -o results.json goodwithtech/test-image:v1
   ]
 }
 ```
-
 </details>
 
 ### Specify exit code
@@ -645,7 +662,7 @@ By default, `Dockle` exits with code `0` even if there are some problems.
 Use the `--exit-code, -c` option to exit with a non-zero exit code if `WARN` or `FATAL` alert were found.
 
 ```bash
-dockle --exit-code 1 [IMAGE_NAME]
+$ dockle --exit-code 1 [IMAGE_NAME]
 ```
 
 ### Specify exit level
@@ -655,8 +672,8 @@ By default, `--exit-code` run when there are `WARN` or `FATAL` level alerts.
 Use the `--exit-level, -l` option to change alert level. You can set `info`, `warn` or `fatal`.
 
 ```bash
-dockle --exit-code 1 --exit-level info [IMAGE_NAME]
-dockle --exit-code 1 --exit-level fatal [IMAGE_NAME]
+$ dockle --exit-code 1 --exit-level info [IMAGE_NAME]
+$ dockle --exit-code 1 --exit-level fatal [IMAGE_NAME]
 ```
 
 ### Ignore the specified checkpoints
@@ -664,12 +681,12 @@ dockle --exit-code 1 --exit-level fatal [IMAGE_NAME]
 The `--ignore, -i` option can ignore specified checkpoints.
 
 ```bash
-dockle -i CIS-DI-0001 -i DKL-DI-0006 [IMAGE_NAME]
+$ dockle -i CIS-DI-0001 -i DKL-DI-0006 [IMAGE_NAME]
 ```
 
 Or, use `DOCKLE_IGNORES`:
 
-```bash
+```
 export DOCKLE_IGNORES=CIS-DI-0001,DKL-DI-0006
 dockle [IMAGE_NAME]
 ```
@@ -700,6 +717,22 @@ dockle -ae pem -ae log [IMAGE_NAME]
 or DOCKLE_ACCEPT_FILE_EXTENSIONS=pem,log dockle [IMAGE_NAME]
 ```
 
+### Reject suspicious `environment variables` / `files` / `file extensions`
+
+```bash
+# --sensitive-word value, --sw value             You can add acceptable keywords.
+dockle -sw PRIVATE [IMAGE_NAME]
+or DOCKLE_ACCEPT_KEYS=GPG_KEY,KEYCLOAK_VERSION dockle [IMAGE_NAME]
+
+# --sensitive-file value, --sf value            You can add acceptable file names.
+dockle -sf .env [IMAGE_NAME]
+or DOCKLE_REJECT_FILES=.env dockle [IMAGE_NAME]
+
+# --sensitive-file-extension value, --se value  You can add acceptable file extensions.
+dockle -se pfx [IMAGE_NAME]
+or DOCKLE_REJECT_FILE_EXTENSIONS=pfx dockle [IMAGE_NAME]
+```
+
 ## Continuous Integration (CI)
 
 You can scan your built image with `Dockle` in Travis CI/CircleCI.
@@ -724,6 +757,7 @@ We provide [goodwithtech/dockle-action](https://github.com/goodwithtech/dockle-a
     ignore: 'CIS-DI-0001,DKL-DI-0006'
 ```
 
+
 ### Travis CI
 
 <details>
@@ -746,11 +780,10 @@ script:
   - ./dockle dockle-ci-test:${COMMIT}
   - ./dockle --exit-code 1 dockle-ci-test:${COMMIT}
 ```
-
 </details>
 
-- Example: <https://travis-ci.org/goodwithtech/dockle-ci-test>
-- Repository: <https://github.com/goodwithtech/dockle-ci-test>
+- Example: https://travis-ci.org/goodwithtech/dockle-ci-test
+- Repository: https://github.com/goodwithtech/dockle-ci-test
 
 ### CircleCI
 
@@ -789,11 +822,10 @@ workflows:
     jobs:
       - build
 ```
-
 </details>
 
-- Example: <https://circleci.com/gh/goodwithtech/dockle-ci-test>
-- Repository: <https://github.com/goodwithtech/dockle-ci-test>
+- Example: https://circleci.com/gh/goodwithtech/dockle-ci-test
+- Repository: https://github.com/goodwithtech/dockle-ci-test
 
 ## GitLab CI
 
@@ -826,11 +858,10 @@ unit_test:
       tar zxvf dockle.tar.gz
     - ./dockle --exit-code 1 dockle-ci-test:${CI_COMMIT_SHORT_SHA}
 ```
-
 </details>
 
-- Example: <https://gitlab.com/tomoyamachi/dockle-ci-test/-/jobs/238215077>
-- Repository: <https://github.com/goodwithtech/dockle-ci-test>
+- Example: https://gitlab.com/tomoyamachi/dockle-ci-test/-/jobs/238215077
+- Repository: https://github.com/goodwithtech/dockle-ci-test
 
 ## Authorization for Private Docker Registry
 
@@ -843,6 +874,7 @@ All you have to do is: install `Dockle` and set ENVIRONMENT variables.
 ### Docker Hub
 
 To download the private repository from Docker Hub, you need to set `DOCKLE_AUTH_URL`, `DOCKLE_USERNAME` and `DOCKLE_PASSWORD` ENV vars.
+
 
 ```bash
 export DOCKLE_AUTH_URL=https://registry.hub.docker.com
@@ -917,9 +949,17 @@ Support this project with your organization. Your logo will show up here with a 
 <a href="https://opencollective.com/dockle/organization/8/website"><img src="https://opencollective.com/dockle/organization/8/avatar.svg"></a>
 <a href="https://opencollective.com/dockle/organization/9/website"><img src="https://opencollective.com/dockle/organization/9/avatar.svg"></a>
 
+### OSS Program Supporters
+
+This project uses services provided through the following OSS programs.
+
+<a href="https://flatt.tech/oss/gmo/trampoline" target="_blank"><img src="https://flatt.tech/assets/images/badges/gmo-oss.svg" height="24px"/></a>
+<a href="https://github.com/1Password/for-open-source" target="_blank"><img src="https://img.shields.io/badge/1Password-OSS%20Program-0094F5?logo=1password&logoColor=white" height="24px"/></a>
+
 # License
 
 - Apache License 2.0
+
 
 # Author
 

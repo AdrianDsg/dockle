@@ -1,6 +1,7 @@
+version: 2
 project_name: dockle
 builds:
-- main: cmd/dockle/main.go
+- main: ./cmd/dockle/
   binary: dockle
   ldflags:
   - -s -w
@@ -11,17 +12,18 @@ builds:
   goos:
   - darwin
   - linux
-  - windows
   goarch:
   - amd64
   - 386
   - arm
   - arm64
+  - loong64
   goarm:
   - 7
 
 nfpms:
-  - formats:
+  -
+    formats:
       - apk
       - deb
       - rpm
@@ -44,7 +46,8 @@ nfpms:
       {{- else }}{{ .Arch }}{{ end }}
 
 archives:
-  - format: tar.gz
+  -
+    format: tar.gz
     format_overrides:
     - goos: windows
       format: zip
@@ -56,21 +59,21 @@ archives:
       {{- else if eq .Os "netbsd" }}NetBSD
       {{- else if eq .Os "freebsd" }}FreeBSD
       {{- else if eq .Os "dragonfly" }}DragonFlyBSD
-      {{- else if eq .Os "windows" }}Windows
       {{- else}}{{- .Os }}{{ end }}-
       {{- if eq .Arch "amd64" }}64bit
       {{- else if eq .Arch "arm" }}ARM
       {{- else if eq .Arch "arm64" }}ARM64
+      {{- else if eq .Arch "loong64" }}LOONG64
       {{- else }}{{ .Arch }}{{ end }}
     files:
     - README.md
     - LICENSE
 
 brews:
-  - repository:
+  -
+    repository:
       owner: goodwithtech
       name: homebrew-r
-    folder: Formula
     homepage: "https://github.com/goodwithtech/dockle"
     description: "Simple security auditing, helping build the Best Docker Images"
     test: |

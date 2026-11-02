@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	deckodertypes "github.com/goodwithtech/deckoder/types"
-
 	"github.com/google/shlex"
 
 	"github.com/goodwithtech/dockle/pkg/log"
@@ -29,7 +27,7 @@ var (
 	suspiciousCompiler *regexp.Regexp
 )
 
-func (a ManifestAssessor) Assess(fileMap deckodertypes.FileMap) (assesses []*types.Assessment, err error) {
+func (a ManifestAssessor) Assess(fileMap types.FileMap) (assesses []*types.Assessment, err error) {
 	log.Logger.Debug("Scan start : config file")
 	file, ok := fileMap["/config"]
 	if !ok {
@@ -169,13 +167,13 @@ func assessHistory(index int, cmd types.History) []*AssessmentWithColumns {
 	var assesses []*AssessmentWithColumns
 	cmdSlices := splitByCommands(cmd.CreatedBy)
 
-	found, varName := sensitiveVars(cmd.CreatedBy)
+	found, varName, varVal := sensitiveVars(cmd.CreatedBy)
 	if found {
 		assesses = append(assesses, &AssessmentWithColumns{
 			Assessment: types.Assessment{
 				Code:     types.AvoidCredential,
 				Filename: ConfigFileName,
-				Desc:     fmt.Sprintf("Suspicious ENV key found : %s on %s (You can suppress it with --accept-key)", varName, cmd.CreatedBy),
+				Desc:     fmt.Sprintf("Suspicious ENV key found : %s on %s (You can suppress it with --accept-key)", varName, strings.ReplaceAll(cmd.CreatedBy, varVal, "*******")),
 			},
 			HistoryIndex: index,
 		})
@@ -277,9 +275,9 @@ func useADDstatement(cmdSlices map[int][]string) bool {
 	return false
 }
 
-func sensitiveVars(cmd string) (bool, string) {
+func sensitiveVars(cmd string) (bool, string, string) {
 	if !strings.Contains(cmd, "=") {
-		return false, ""
+		return false, "", ""
 	}
 	toklexer := shlex.NewLexer(strings.NewReader(strings.ReplaceAll(cmd, "#", "")))
 	for {
@@ -304,11 +302,11 @@ func sensitiveVars(cmd string) (bool, string) {
 		}
 
 		if suspiciousCompiler.MatchString(varName) {
-			return true, varName
+			return true, varName, varVal
 		}
 	}
 
-	return false, ""
+	return false, "", ""
 }
 
 func checkAptCommand(target []string, command string) bool {
@@ -354,7 +352,7 @@ func reducableAptGetInstall(cmdSlices map[int][]string) bool {
 			useAptLibrary = true
 		}
 		// remove cache must be run after apt library directory changed
-		if useAptLibrary && containsThreshold(cmdSlice, removeAptLibCmds, 3) {
+		if useAptLibrary && (containsThreshold(cmdSlice, removeAptLibCmds, 3) || checkAptCommand(cmdSlice, "dist-clean") || checkAptCommand(cmdSlice, "distclean")) {
 			return false
 		}
 	}

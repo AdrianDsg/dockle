@@ -392,6 +392,39 @@ func TestReducableAptGetInstall(t *testing.T) {
 			},
 			expected: false,
 		},
+		"UnReducableDistClean": {
+			cmdSlices: map[int][]string{
+				0: {
+					"apt-get", "install", "-y", "git",
+				},
+				1: {
+					"apt-get", "dist-clean",
+				},
+			},
+			expected: false,
+		},
+		"UnReducableDistclean": {
+			cmdSlices: map[int][]string{
+				0: {
+					"apt-get", "install", "-y", "git",
+				},
+				1: {
+					"apt", "distclean",
+				},
+			},
+			expected: false,
+		},
+		"UnReducableDistCleanWithOptions": {
+			cmdSlices: map[int][]string{
+				0: {
+					"apt-get", "install", "-y", "git",
+				},
+				1: {
+					"apt-get", "-q", "-y", "dist-clean",
+				},
+			},
+			expected: false,
+		},
 	}
 	for testname, v := range tests {
 		actual := reducableAptGetInstall(v.cmdSlices)
@@ -459,7 +492,7 @@ func TestSensitiveVars(t *testing.T) {
 		//"skip echo string": {cmd: `/bin/sh -c echo 'secret=foo;' > test.conf`, expected: true},
 	}
 	for testname, v := range tests {
-		actual, _ := sensitiveVars(v.cmd)
+		actual, _, _ := sensitiveVars(v.cmd)
 		if actual != v.expected {
 			t.Errorf("%s want: %t, got %t", testname, v.expected, actual)
 		}
